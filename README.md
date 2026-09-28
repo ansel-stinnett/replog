@@ -5,7 +5,8 @@ organize them into routines, and review their training history and progress over
 
 **Course:** CS 415/515 — Software Design and Development
 **Team:** Ansel Stinnett, Nhan Trinh
-**Status:** Milestone 0 (Propose It) — proposal and planning. No application code yet.
+**Status:** Milestone 1 — working MVP: accounts, workout logging, history, and per-exercise progress.
+Design documents for this milestone are in [`docs/milestone-1/`](docs/milestone-1/README.md).
 
 ---
 
@@ -81,12 +82,9 @@ Main entities: `users`, `workouts`, `exercises`, `workout_exercises`, `sets`.
 
 ## Getting started
 
-> Setup instructions below are the target for Milestone 1. As of Milestone 0 the
-> repository contains planning documents only.
-
 ### Prerequisites
 
-- Node.js 20.x or later
+- Node.js 20 or later
 - npm 10.x or later
 - Docker and Docker Compose (for the database)
 - Git
@@ -126,7 +124,8 @@ Documented in `.env.example`. No real secrets are committed to the repository.
 |---|---|---|
 | `DATABASE_URL` | Postgres connection string | `postgres://replog:replog@localhost:5432/replog` |
 | `PORT` | API port | `3001` |
-| `SESSION_SECRET` | Signs session cookies / tokens | *(generate a random value)* |
+| `TEST_DATABASE_URL` | Database used only by `npm test` (wiped on every run) | `postgres://replog:replog@localhost:5432/replog_test` |
+| `SESSION_SECRET` | Signs session cookies | *(generate a random value; command in `.env.example`)* |
 | `NODE_ENV` | Runtime mode | `development` |
 
 ### Demonstration accounts
@@ -145,6 +144,19 @@ npm test --prefix server              # unit and integration tests
 npm run test:coverage --prefix server # coverage report
 ```
 
+Tests run against `replog_test`, which `docker compose` creates alongside the
+main database. The suite rebuilds that database from the migrations on every
+run, so it never touches your dev data.
+
+> If you created the Docker volume before `docker/initdb/` existed, the test
+> database won't exist yet. Run `docker compose down -v && docker compose up -d db`
+> once to recreate it.
+
+### API
+
+The REST contract is documented in [`docs/milestone-1/design.md`](docs/milestone-1/design.md#api-contract).
+All routes are under `/api`; everything except register, login, and health requires a session.
+
 ---
 
 ## Verification guide for the TA
@@ -154,7 +166,10 @@ npm run test:coverage --prefix server # coverage report
 3. Create a new workout, add an exercise with two sets, and save it.
 4. Confirm the new workout appears at the top of the history list.
 5. Open the progress view for that exercise and confirm the new entry appears.
-6. Run the test command above and confirm the suite passes.
+6. Edit that workout, then delete it, and confirm it disappears from history.
+7. Log out, then log in as `empty@replog.test` and confirm the empty states on History and Progress.
+8. Run the test command above and confirm the suite passes. `test/isolation.test.js`
+   is the automated check that one user can't read, edit, or delete another's workouts.
 
 If a public deployment exists, its URL is listed at the top of this README in
 addition to these local instructions.
@@ -189,9 +204,17 @@ Every milestone tag points at a runnable version of the application.
 
 ```
 replog/
-├── client/           # React frontend
-├── server/           # Express API
-├── docs/             # Proposal, diagrams, ADRs, backlog
+├── client/                 # React (Vite) frontend
+│   └── src/pages/          # one component per screen
+├── server/                 # Express API
+│   ├── src/routes/         # HTTP layer: parse, validate, respond
+│   ├── src/repositories/   # all SQL lives here
+│   ├── src/middleware/     # auth guard, error handler
+│   ├── src/db/             # migrations, runner, seed
+│   └── test/               # Jest + Supertest
+├── docs/                   # proposal and milestone design documents
+├── docker/initdb/          # creates the test database on first start
+├── .github/workflows/      # CI: server tests + client build on every PR
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
@@ -203,6 +226,11 @@ replog/
 |---|---|
 | Ansel Stinnett | Ansel will design the REST API contract and implement authentication and the workout-logging features across the frontend and help with the backend. |
 | Nhan Trinh | Backend and database development; testing and debugging support |
+
+## Milestone 1 contributions
+
+- **Ansel Stinnett:** Designed the REST API contract and implemented authentication, the workout and progress endpoints, and the React client. Set up CI and wrote the process, requirements, design, component-design, and UX documents.
+- **Nhan Trinh:** Built the seed script and demo data, wrote the data-isolation test suite for story #6, and wrote the data model document. Reviewed and merged the MVP pull request.
 
 ## License
 
