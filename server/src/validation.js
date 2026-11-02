@@ -84,6 +84,27 @@ function validateWorkout(body = {}) {
   return { value: { performedOn, note: note || null, exercises } };
 }
 
+// Query parameters for filtering the history list (backlog story #11).
+// Everything is optional; an empty query means "no filter", which keeps the
+// Milestone 1 behaviour of GET /api/workouts unchanged.
+function validateWorkoutFilter(query = {}) {
+  const errors = {};
+
+  const rawSearch = typeof query.search === 'string' ? query.search.trim() : '';
+  if (rawSearch.length > 80) errors.search = 'Search text must be 80 characters or fewer.';
+
+  const from = typeof query.from === 'string' && query.from.trim() !== '' ? query.from.trim() : null;
+  const to = typeof query.to === 'string' && query.to.trim() !== '' ? query.to.trim() : null;
+  if (from !== null && !isRealDate(from)) errors.from = 'From date must be a real date in YYYY-MM-DD format.';
+  if (to !== null && !isRealDate(to)) errors.to = 'To date must be a real date in YYYY-MM-DD format.';
+  if (!errors.from && !errors.to && from && to && from > to) {
+    errors.to = 'To date must be on or after the from date.';
+  }
+
+  if (Object.keys(errors).length) return { errors };
+  return { value: { search: rawSearch || null, from, to } };
+}
+
 // Route params arrive as strings; anything that isn't a positive integer is
 // treated as "not found" rather than reaching the database.
 function parseId(raw) {
@@ -91,4 +112,11 @@ function parseId(raw) {
   return Number.isInteger(n) && n > 0 && n <= 2147483647 ? n : null;
 }
 
-module.exports = { validateCredentials, validateWorkout, parseId, isRealDate, todayISO };
+module.exports = {
+  validateCredentials,
+  validateWorkout,
+  validateWorkoutFilter,
+  parseId,
+  isRealDate,
+  todayISO,
+};

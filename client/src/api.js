@@ -29,7 +29,15 @@ export const api = {
   logout: () => request('POST', '/auth/logout'),
   updateProfile: (body) => request('PATCH', '/auth/me', body),
 
-  listWorkouts: () => request('GET', '/workouts'),
+  // filter: { search, from, to } -- any subset; empty values are omitted.
+  listWorkouts: (filter = {}) => {
+    const qs = new URLSearchParams();
+    for (const key of ['search', 'from', 'to']) {
+      if (filter[key]) qs.set(key, filter[key]);
+    }
+    const query = qs.toString();
+    return request('GET', query ? `/workouts?${query}` : '/workouts');
+  },
   getWorkout: (id) => request('GET', `/workouts/${id}`),
   createWorkout: (body) => request('POST', '/workouts', body),
   updateWorkout: (id, body) => request('PUT', `/workouts/${id}`, body),
