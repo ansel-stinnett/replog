@@ -39,6 +39,10 @@ export default function ProgressPage() {
   const first = points[0];
   const last = points[points.length - 1];
   const best = points.reduce((m, p) => (p.topWeight > (m?.topWeight ?? -1) ? p : m), null);
+  // The server computes the record from every set, not just the charted top
+  // sets, so it is the authoritative number (story #12).
+  const pr = data?.personalRecord || null;
+  const prIsLatest = pr && last && pr.date === last.date;
 
   return (
     <section>
@@ -59,6 +63,16 @@ export default function ProgressPage() {
             <div><dt>Latest</dt><dd>{formatWeight(last.topWeight)}<small> lb</small></dd></div>
             <div><dt>Change</dt><dd>{last.topWeight - first.topWeight >= 0 ? '+' : ''}{formatWeight(last.topWeight - first.topWeight)}<small> lb</small></dd></div>
           </dl>
+
+          {pr && (
+            <p className={`pr-banner${prIsLatest ? ' is-new' : ''}`}>
+              <span className="pr-tag">PR</span>
+              <span>
+                {formatWeight(pr.weight)} lb × {pr.reps} on {formatDate(pr.date)}
+                {prIsLatest && ' — set in your most recent session'}
+              </span>
+            </p>
+          )}
 
           <div className="chart" role="img" aria-label={`Top set weight for ${data.exercise.name} across ${points.length} sessions`}>
             <ResponsiveContainer width="100%" height={260}>
