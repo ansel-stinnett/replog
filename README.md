@@ -5,8 +5,13 @@ organize them into routines, and review their training history and progress over
 
 **Course:** CS 415/515 — Software Design and Development
 **Team:** Ansel Stinnett, Nhan Trinh
-**Status:** Milestone 1 — working MVP: accounts, workout logging, history, and per-exercise progress.
-Design documents for this milestone are in [`docs/milestone-1/`](docs/milestone-1/README.md).
+**Status:** Milestone 2 — working application: accounts, workout logging, history with
+search and date filtering, per-exercise progress with personal records, and rate-limited
+authentication. 92 automated tests.
+Milestone 2 documents — threat model, OWASP review, QA plan, evidence — are in
+[`docs/milestone-2/`](docs/milestone-2/README.md). Milestone 1 design documents are in
+[`docs/milestone-1/`](docs/milestone-1/README.md). Release history is in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -168,8 +173,42 @@ All routes are under `/api`; everything except register, login, and health requi
 5. Open the progress view for that exercise and confirm the new entry appears.
 6. Edit that workout, then delete it, and confirm it disappears from history.
 7. Log out, then log in as `empty@replog.test` and confirm the empty states on History and Progress.
-8. Run the test command above and confirm the suite passes. `test/isolation.test.js`
-   is the automated check that one user can't read, edit, or delete another's workouts.
+8. Run the test command above and confirm the suite passes (92 tests).
+   `test/isolation.test.js` is the automated check that one user can't read,
+   edit, or delete another's workouts.
+
+### Milestone 2 features
+
+9. **Search.** On History, type `bench` in the search box. The list narrows to
+   workouts containing a Bench Press, or whose note mentions it. Clear it and
+   the full list returns.
+10. **Date range.** Set From to a date about a month back and leave To empty.
+    Only sessions on or after that date remain. Both ends are inclusive.
+11. **Personal records.** On Progress, pick an exercise. The PR line shows the
+    heaviest set ever logged for it, with reps and date. Log a heavier set for
+    that exercise and the PR updates and is marked as set in your most recent
+    session.
+12. **Security control — rate limiting.** Log out. Try to log in as
+    `demo@replog.test` with a wrong password six times. The first five are
+    rejected normally; the sixth returns "Too many attempts." A correct
+    password is also refused until the window passes, which is the control
+    working as intended.
+
+    From the command line, with the server running:
+
+    ```bash
+    ./scripts/security-evidence.sh
+    ```
+
+    Expect five `401`s followed by `429`s. Captured before-and-after output is
+    in `docs/milestone-2/evidence/`.
+
+    The limiter counts only *failed* attempts, so repeatedly logging in
+    correctly never locks you out — verify by logging in successfully several
+    times in a row.
+
+13. **Coverage.** `npm run test:coverage --prefix server` prints the table and
+    fails if coverage drops below the thresholds in `server/package.json`.
 
 If a public deployment exists, its URL is listed at the top of this README in
 addition to these local instructions.
@@ -193,9 +232,9 @@ addition to these local instructions.
 
 | Milestone | Goal | Tag |
 |---|---|---|
-| 0 | Proposal, repository, backlog, architecture | `milestone-0` |
-| 1 | Working end-to-end MVP with auth and logging | `milestone-1` |
-| 2 | Expanded features, tests, coverage, security controls | `milestone-2` |
+| 0 | Proposal, repository, backlog, architecture | `milestone-0` (done) |
+| 1 | Working end-to-end MVP with auth and logging | `milestone-1` (done) |
+| 2 | Expanded features, tests, coverage, security controls | `milestone-2` (done) |
 | 3 | Containerized, CI/CD, deployed at a public URL, `v1.0` | `milestone-3` |
 
 Every milestone tag points at a runnable version of the application.
