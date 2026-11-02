@@ -1,0 +1,18 @@
+Target:   http://localhost:3098/api/auth/login
+Account:  demo@replog.test
+Attempts: 8 (all with a deliberately wrong password)
+Run at:   2026-11-02 01:13:16 UTC
+
+ATTEMPT   STATUS  MEANING
+-------   ------  -------
+1         401     rejected, but the guess was answered
+2         401     rejected, but the guess was answered
+3         401     rejected, but the guess was answered
+4         401     rejected, but the guess was answered
+5         401     rejected, but the guess was answered
+6         429     BLOCKED by rate limit
+7         429     BLOCKED by rate limit
+8         429     BLOCKED by rate limit
+
+Expected before the control: every attempt 401.
+Expected after  the control: 401 up to the limit, then 429.
