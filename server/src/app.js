@@ -5,8 +5,15 @@ const config = require('./config');
 const pool = require('./db/pool');
 const requireAuth = require('./middleware/requireAuth');
 const errorHandler = require('./middleware/errorHandler');
+const { buildLimiters } = require('./middleware/rateLimit');
 
-function createApp() {
+// `rateLimit` controls the auth throttling added in Milestone 2:
+//   undefined  use the defaults (production and development)
+//   false      disable it, so tests that make many logins on purpose are
+//              not fighting the limiter
+//   object     override windowMs / loginLimit / burstLimit, used by the
+//              rate-limit tests to exercise the control with small numbers
+function createApp({ rateLimit = config.isTest ? false : undefined } = {}) {
   const app = express();
   app.disable('x-powered-by');
   if (config.isProduction) app.set('trust proxy', 1);
@@ -29,6 +36,13 @@ function createApp() {
   );
 
   app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+  // Throttle credential guessing before it reaches the auth routes.
+  if (rateLimit !== false) {
+    const { loginLimiter, authBurstLimiter } = buildLimiters(rateLimit || {});
+    app.use('/api/auth', authBurstLimiter);
+    app.use('/api/auth/login', loginLimiter);
+  }
   app.use('/api/auth', require('./routes/auth'));
   app.use('/api/workouts', requireAuth, require('./routes/workouts'));
   app.use('/api/exercises', requireAuth, require('./routes/exercises'));
