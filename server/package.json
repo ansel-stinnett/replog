@@ -18,7 +18,15 @@
     "coveragePathIgnorePatterns": [
       "/node_modules/",
       "/test/"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "statements": 85,
+        "lines": 90,
+        "functions": 90,
+        "branches": 70
+      }
+    }
   },
   "engines": {
     "node": ">=20"
