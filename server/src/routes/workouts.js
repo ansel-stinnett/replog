@@ -1,12 +1,17 @@
 const express = require('express');
 const workouts = require('../repositories/workoutRepository');
-const { validateWorkout, parseId } = require('../validation');
+const { validateWorkout, validateWorkoutFilter, parseId } = require('../validation');
 
 const router = express.Router();
 const NOT_FOUND = { error: 'Workout not found.' };
 
+// Supports ?search=&from=&to= (backlog story #11). With no query parameters
+// this behaves exactly as it did in Milestone 1.
 router.get('/', async (req, res) => {
-  res.json({ workouts: await workouts.listForUser(req.userId) });
+  const { value, errors } = validateWorkoutFilter(req.query);
+  if (errors) return res.status(400).json({ error: 'Check the highlighted fields.', fields: errors });
+  const list = await workouts.listForUser(req.userId, value);
+  return res.json({ workouts: list, filter: value });
 });
 
 router.post('/', async (req, res) => {

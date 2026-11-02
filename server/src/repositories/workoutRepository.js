@@ -4,7 +4,50 @@
 const pool = require('../db/pool');
 const exerciseRepository = require('./exerciseRepository');
 
-async function listForUser(userId) {
+// Bind parameters stop the search term from being read as SQL, but '%' and
+// '_' inside the value are still LIKE wildcards -- without this, searching for
+// "%" would match every workout. Escaping them (with ESCAPE '\' on the
+// pattern) makes the term match literally, which is what a user expects.
+function escapeLike(term) {
+  return term.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+// Lists a user's workouts, newest first, optionally narrowed by a text search
+// and/or a date range (backlog story #11).
+//
+// The search matches the workout note or any exercise name in that workout.
+// It is applied with EXISTS rather than by joining, so matching on one
+// exercise still returns the workout's full exercise list rather than only
+// the rows that matched.
+//
+// Every filter value is passed as a bind parameter -- user input never
+// reaches the SQL string itself (OWASP A03).
+async function listForUser(userId, filter = {}) {
+  const { search = null, from = null, to = null } = filter;
+  const params = [userId];
+  const where = ['w.user_id = $1'];
+
+  if (search) {
+    params.push(`%${escapeLike(search)}%`);
+    const p = `$${params.length}`;
+    where.push(`(
+      w.note ILIKE ${p} ESCAPE '\\'
+      OR EXISTS (
+        SELECT 1 FROM workout_exercises wex
+          JOIN exercises ex ON ex.id = wex.exercise_id
+         WHERE wex.workout_id = w.id AND ex.name ILIKE ${p} ESCAPE '\\'
+      )
+    )`);
+  }
+  if (from) {
+    params.push(from);
+    where.push(`w.performed_on >= $${params.length}`);
+  }
+  if (to) {
+    params.push(to);
+    where.push(`w.performed_on <= $${params.length}`);
+  }
+
   const { rows } = await pool.query(
     `SELECT w.id, w.performed_on AS "performedOn", w.note,
             COALESCE(
@@ -15,10 +58,10 @@ async function listForUser(userId) {
        FROM workouts w
        LEFT JOIN workout_exercises we ON we.workout_id = w.id
        LEFT JOIN exercises e ON e.id = we.exercise_id
-      WHERE w.user_id = $1
+      WHERE ${where.join(' AND ')}
       GROUP BY w.id
       ORDER BY w.performed_on DESC, w.id DESC`,
-    [userId],
+    params,
   );
   return rows;
 }
