@@ -12,20 +12,55 @@ async function findOrCreate(userId, name, db = pool) {
   return rows[0];
 }
 
+// Each exercise the user has actually performed, with its personal record
+// (backlog story #12). The PR is the heaviest single set ever recorded; ties
+// on weight are broken by the higher rep count, then by the earlier date, so
+// the record is the session that first achieved it.
 async function listForUser(userId) {
   const { rows } = await pool.query(
     `SELECT e.id, e.name,
             count(DISTINCT we.workout_id)::int AS "timesPerformed",
-            max(w.performed_on) AS "lastPerformedOn"
+            max(w.performed_on) AS "lastPerformedOn",
+            pr.weight AS "prWeight",
+            pr.reps   AS "prReps",
+            pr.date   AS "prDate"
        FROM exercises e
        JOIN workout_exercises we ON we.exercise_id = e.id
        JOIN workouts w ON w.id = we.workout_id
+       LEFT JOIN LATERAL (
+         SELECT s.weight, s.reps, w2.performed_on AS date
+           FROM sets s
+           JOIN workout_exercises we2 ON we2.id = s.workout_exercise_id
+           JOIN workouts w2 ON w2.id = we2.workout_id
+          WHERE we2.exercise_id = e.id AND w2.user_id = $1
+          ORDER BY s.weight DESC, s.reps DESC, w2.performed_on ASC
+          LIMIT 1
+       ) pr ON true
       WHERE e.user_id = $1
-      GROUP BY e.id
+      GROUP BY e.id, pr.weight, pr.reps, pr.date
       ORDER BY "lastPerformedOn" DESC, e.name`,
     [userId],
   );
-  return rows;
+  return rows.map(({ prWeight, prReps, prDate, ...rest }) => ({
+    ...rest,
+    personalRecord: prWeight === null ? null : { weight: prWeight, reps: prReps, date: prDate },
+  }));
+}
+
+// The personal record for one exercise, scoped by user_id so it can never
+// read another user's sets.
+async function personalRecord(userId, exerciseId) {
+  const { rows } = await pool.query(
+    `SELECT s.weight, s.reps, w.performed_on AS "date", w.id AS "workoutId"
+       FROM sets s
+       JOIN workout_exercises we ON we.id = s.workout_exercise_id
+       JOIN workouts w ON w.id = we.workout_id
+      WHERE w.user_id = $1 AND we.exercise_id = $2
+      ORDER BY s.weight DESC, s.reps DESC, w.performed_on ASC
+      LIMIT 1`,
+    [userId, exerciseId],
+  );
+  return rows[0] || null;
 }
 
 // Scoped by user_id so one user can never read another's exercise.
@@ -55,4 +90,4 @@ async function progress(userId, exerciseId) {
   return rows;
 }
 
-module.exports = { findOrCreate, listForUser, findForUser, progress };
+module.exports = { findOrCreate, listForUser, findForUser, progress, personalRecord };
